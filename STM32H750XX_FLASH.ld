@@ -56,7 +56,7 @@ ENTRY(Reset_Handler)
 MEMORY
 {
 DTCMRAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
-RAM (xrw)      : ORIGIN = 0x24000000, LENGTH = 512K
+RAM_D1 (xrw)      : ORIGIN = 0x24000000, LENGTH = 512K
 RAM_D2 (xrw)      : ORIGIN = 0x30000000, LENGTH = 288K
 RAM_D3 (xrw)      : ORIGIN = 0x38000000, LENGTH = 64K
 ITCMRAM (xrw)      : ORIGIN = 0x00000000, LENGTH = 64K
@@ -226,6 +226,50 @@ SECTIONS
       PROVIDE( __bss_end = .);
   } >DTCMRAM
   PROVIDE( __non_tls_bss_start = ADDR(.bss) );
+
+  /* Initialized AXI SRAM data: copied from FLASH by Reset_Handler. */
+  .ram_d1_data : ALIGN(8)
+  {
+    _sram_d1_data = .;
+    *(.ram_d1_data)
+    *(.ram_d1_data*)
+    . = ALIGN(8);
+    _eram_d1_data = .;
+  } >RAM_D1 AT> FLASH
+
+  _siram_d1_data = LOADADDR(.ram_d1_data);
+
+  /* Zero-initialized AXI SRAM data: cleared by Reset_Handler. */
+  .ram_d1_bss (NOLOAD) : ALIGN(8)
+  {
+    _sram_d1_bss = .;
+    *(.ram_d1_bss)
+    *(.ram_d1_bss*)
+    . = ALIGN(8);
+    _eram_d1_bss = .;
+  } >RAM_D1
+
+  /* Initialized DMA buffers: copied from FLASH by Reset_Handler. */
+  .dma_buffer_data : ALIGN(32)
+  {
+    _sdma_buffer_data = .;
+    *(.dma_buffer_data)
+    *(.dma_buffer_data*)
+    . = ALIGN(32);
+    _edma_buffer_data = .;
+  } >RAM_D2 AT> FLASH
+
+  _sidma_buffer_data = LOADADDR(.dma_buffer_data);
+
+  /* Zero-initialized DMA buffers: cleared by Reset_Handler. */
+  .dma_buffer_bss (NOLOAD) : ALIGN(32)
+  {
+    _sdma_buffer_bss = .;
+    *(.dma_buffer_bss)
+    *(.dma_buffer_bss*)
+    . = ALIGN(32);
+    _edma_buffer_bss = .;
+  } >RAM_D2
 
   PROVIDE( __bss_start = __tbss_start );
   PROVIDE( __bss_size = __bss_end - __bss_start );

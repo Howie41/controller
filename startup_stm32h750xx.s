@@ -43,6 +43,17 @@ defined in linker script */
 .word  _sbss
 /* end address for the .bss section. defined in linker script */
 .word  _ebss
+/* addresses for the custom RAM_D1 and DMA sections. defined in linker script */
+.word  _siram_d1_data
+.word  _sram_d1_data
+.word  _eram_d1_data
+.word  _sidma_buffer_data
+.word  _sdma_buffer_data
+.word  _edma_buffer_data
+.word  _sram_d1_bss
+.word  _eram_d1_bss
+.word  _sdma_buffer_bss
+.word  _edma_buffer_bss
 /* stack used for SystemInit_ExtMemCtl; always internal RAM used */
 
 /**
@@ -81,6 +92,41 @@ LoopCopyDataInit:
   adds r4, r0, r3
   cmp r4, r1
   bcc CopyDataInit
+
+/* Copy initialized RAM_D1 data from FLASH to AXI SRAM. */
+  ldr r0, =_sram_d1_data
+  ldr r1, =_eram_d1_data
+  ldr r2, =_siram_d1_data
+  movs r3, #0
+  b LoopCopyRamD1DataInit
+
+CopyRamD1DataInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+
+LoopCopyRamD1DataInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopyRamD1DataInit
+
+/* Copy initialized DMA data from FLASH to RAM_D2. */
+  ldr r0, =_sdma_buffer_data
+  ldr r1, =_edma_buffer_data
+  ldr r2, =_sidma_buffer_data
+  movs r3, #0
+  b LoopCopyDmaDataInit
+
+CopyDmaDataInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+
+LoopCopyDmaDataInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopyDmaDataInit
+
 /* Zero fill the bss segment. */
   ldr r2, =_sbss
   ldr r4, =_ebss
@@ -94,6 +140,34 @@ FillZerobss:
 LoopFillZerobss:
   cmp r2, r4
   bcc FillZerobss
+
+/* Zero fill the RAM_D1 BSS segment. */
+  ldr r2, =_sram_d1_bss
+  ldr r4, =_eram_d1_bss
+  movs r3, #0
+  b LoopFillZeroRamD1Bss
+
+FillZeroRamD1Bss:
+  str  r3, [r2]
+  adds r2, r2, #4
+
+LoopFillZeroRamD1Bss:
+  cmp r2, r4
+  bcc FillZeroRamD1Bss
+
+/* Zero fill the DMA buffer BSS segment. */
+  ldr r2, =_sdma_buffer_bss
+  ldr r4, =_edma_buffer_bss
+  movs r3, #0
+  b LoopFillZeroDmaBss
+
+FillZeroDmaBss:
+  str  r3, [r2]
+  adds r2, r2, #4
+
+LoopFillZeroDmaBss:
+  cmp r2, r4
+  bcc FillZeroDmaBss
 
 /* Call static constructors */
     bl __libc_init_array
@@ -753,5 +827,3 @@ g_pfnVectors:
 
    .weak      WAKEUP_PIN_IRQHandler
    .thumb_set WAKEUP_PIN_IRQHandler,Default_Handler
-
-
