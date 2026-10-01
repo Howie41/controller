@@ -39,6 +39,12 @@ add_executable(${CMAKE_PROJECT_NAME})
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
 
+# SystemInit must enable D2 SRAM before Reset_Handler initializes the custom
+# DMA sections located there. Keep this outside CubeMX-generated files.
+target_compile_definitions(STM32_Drivers PRIVATE
+    DATA_IN_D2_SRAM
+)
+
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined library search paths
