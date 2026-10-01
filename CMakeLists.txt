@@ -82,7 +82,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${USER_INCLUDE_DIRS})
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
+    ENABLE_RUNTIME_ASSERT=1
 )
 
 # Remove wrong libob.a library dependency when using cpp files
