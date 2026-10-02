@@ -1,6 +1,6 @@
 # 内存段宏与 DMA 缓冲区
 
-本项目基于 STM32H750。默认的 `.data` 和 `.bss` 位于 DTCMRAM（`0x20000000`），而 DMA1/DMA2 不能访问 DTCMRAM。需要让 DMA 访问的对象，必须放到 DMA 可访问的 SRAM 中。段宏定义在 [`BSP/memory_map.h`](../BSP/memory_map.h)，`DmaBuffer` 定义在 [`BSP/dma_buffer.hpp`](../BSP/dma_buffer.hpp)。
+本项目基于 STM32H750。默认的 `.data` 和 `.bss` 位于 DTCMRAM（`0x20000000`），而 DMA1/DMA2 不能访问 DTCMRAM。需要让 DMA 访问的对象，必须放到 DMA 可访问的 SRAM 中。本项目不使用 D-Cache，因此当前 DMA 缓冲区不需要为缓存行操作做 32 字节对齐或缓存维护。段宏定义在 [`BSP/memory_map.h`](../BSP/memory_map.h)，`DmaBuffer` 定义在 [`BSP/dma_buffer.hpp`](../BSP/dma_buffer.hpp)。
 
 ## 四个段宏
 
@@ -23,19 +23,19 @@ RAM_D1_BSS std::uint32_t counter{};
 DMA_BUFFER_BSS DmaBuffer<std::uint16_t, 4> adc_samples{};
 ```
 
-这些示例变量须具有静态存储期（全局变量或 `static` 变量）。`DMA_BUFFER_DATA` 也提供给需要预置内容的 DMA 数据；当前项目的 ADC 接收缓冲区使用 `DMA_BUFFER_BSS`。
+这些示例变量须具有静态存储期（全局变量或 `static` 变量）。`DMA_BUFFER_DATA` 也提供给需要预置内容的 DMA 数据；当前项目的 ADC 接收缓冲区作为 `AdcDma` 成员，整个 `AdcDma` 实例使用 `DMA_BUFFER_BSS`。
 
 ## `DmaBuffer<T, Length>` 的作用
 
-`DmaBuffer` 是固定长度的缓冲区封装：`T` 必须可平凡复制，`Length` 必须大于零；类型本身按 32 字节对齐，不允许复制。`data()` 返回 `volatile T*`，`operator[]` 返回 `volatile` 元素引用，`size()` 返回元素个数。`volatile` 使 CPU 对缓冲区的读取保持为实际内存访问，但它本身不负责选择 SRAM，也不解决启用 D-Cache 后的缓存一致性问题。
+`DmaBuffer` 是固定长度的缓冲区封装：`T` 必须可平凡复制，`Length` 必须大于零；类型本身按 32 字节对齐，不允许复制。`data()` 返回 `volatile T*`，`operator[]` 返回 `volatile` 元素引用，`size()` 返回元素个数。`volatile` 使 CPU 对缓冲区的读取保持为实际内存访问，但它本身不负责选择 SRAM。当前 ADC 路径不使用这个类；其 32 字节对齐也不是当前 ADC DMA 传输所必需的。
 
-**要把对象放到 D2 SRAM，仍须在变量定义处标注 `DMA_BUFFER_BSS` 或 `DMA_BUFFER_DATA`。** 单独声明 `DmaBuffer` 类型不会改变链接段。当前用法见 [`APP/init/init.cpp`](../APP/init/init.cpp)：
+**要把对象放到 D2 SRAM，仍须在变量定义处标注 `DMA_BUFFER_BSS` 或 `DMA_BUFFER_DATA`。** 单独声明 `DmaBuffer` 类型不会改变链接段。当前 ADC 用法见 [`APP/init/init.cpp`](../APP/init/init.cpp)：
 
 ```cpp
-DMA_BUFFER_BSS DmaBuffer<std::uint16_t, 4> joystick_adc_buffer{};
+DMA_BUFFER_BSS AdcDma<4> joystick_adc(hadc1);
 ```
 
-该对象由 [`MODULE/joystick/joystick.hpp`](../MODULE/joystick/joystick.hpp) 中的 `AdcDma` 传给 `HAL_ADC_Start_DMA`。DMA 的数据宽度还需要与元素类型和外设配置一致；当前 ADC 路径使用 16 位元素。32 字节对齐不等于自动完成缓存清理或失效。如果以后启用 D-Cache，应按 DMA 方向处理缓存一致性，并核对缓冲区的缓存行边界。
+[`MODULE/joystick/joystick.hpp`](../MODULE/joystick/joystick.hpp) 中的 `AdcDma` 自己持有 16 位数组，并传给 `HAL_ADC_Start_DMA`；这条 ADC 路径暂不使用 `DmaBuffer` 类。DMA 的数据宽度还需要与元素类型和外设配置一致。数组本身未单独指定 `alignas(32)`；当前不使用 D-Cache，ADC DMA 传输只需要满足 16 位对齐。`DMA_BUFFER_BSS` 仍然需要保留，因为它使整个 `AdcDma` 实例按 32 字节对齐并位于 DMA 可访问的 D2 SRAM。
 
 ## 配套的链接与启动改动
 
